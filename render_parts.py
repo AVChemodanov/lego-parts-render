@@ -33,7 +33,8 @@ def create_cube(mat_name, size, location):
 
 
 def create_back(): 
-    create_cube("bottom", 200, (0, 0, -110))
+    pass
+    #create_cube("bottom", 200, (0, 0, -110))
     
     #create_cube("east", 200, (110, 0, 0))
     #create_cube("south", 200, (110, 110, 0))
@@ -45,7 +46,7 @@ def create_back():
 
 def recolor_back():
     white = (1.0, 1.0, 1.0, 1.0)
-    bpy.data.materials["bottom"].diffuse_color =  white # random_color()
+    #bpy.data.materials["bottom"].diffuse_color =  white # random_color()
     #bpy.data.materials["east"].diffuse_color = white # random_color()
     #bpy.data.materials["south"].diffuse_color = white # random_color()
     #bpy.data.materials["west"].diffuse_color = white # random_color()
@@ -80,6 +81,7 @@ def prepare_and_load(filename, brick_name):
     #        brick_name = child.name.rpartition('.')[0]
 
     brick.location[2]+=1
+    brick.visible_shadow = False
 
     # создадим свет 
     light_data = bpy.data.lights.new('light', type='SUN')
@@ -128,29 +130,34 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
     cam = bpy.context.scene.camera
     # настроим рендеринг 
     #scene.render.engine = "BLENDER_WORKBENCH"
-    scene.render.engine = "BLENDER_EEVEE"
-    #scene.render.engine = "CYCLES"
+    #scene.render.engine = "BLENDER_EEVEE"
+    scene.render.engine = "CYCLES"
     # Set the device_type
-    #bpy.context.preferences.addons[
-    #    "cycles"
-    #].preferences.compute_device_type = "CUDA" # or "OPENCL"
+    bpy.context.preferences.addons[
+        "cycles"
+    ].preferences.compute_device_type = "CUDA" # or "OPENCL"
 
     # Set the device and feature set
-    #bpy.context.scene.cycles.device = "GPU"
+    bpy.context.scene.cycles.device = "GPU"
 
 
     # непосредственно рендер 
     desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') 
     scene.cycles.samples = 150
+    scene.cycles.diffuse_bounces = 10
+    scene.cycles.glossy_bounces = 0
     scene.render.image_settings.file_format='PNG'
     scene.render.filepath=f'{desktop}\\blend\\{brick_name}.png'
 
+    scene.render.resolution_x = 1024
+    scene.render.resolution_y = 768
     bpy.ops.render.render(write_still=1)
 
     radiants = 0.0
     step = 10
 
     for angle in range(0, 2160, step):
+    #for angle in range(0, 10, step):
         # enable/disable plane
         #hide = random.randint(0, 100)
         #print(hide)
@@ -160,12 +167,12 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
         #    plane.hide_render = False
         
         # colorization
-        recolor_back() 
+        #recolor_back() 
 
-        material_slots = brick.material_slots
-        for m in material_slots:
-            material = m.material
-            material.node_tree.nodes["Group"].inputs[0].default_value = random_color() #(r, g, b, 1.0)
+        #material_slots = brick.material_slots
+        #for m in material_slots:
+        #    material = m.material
+        #    material.node_tree.nodes["Group"].inputs[0].default_value = random_color() #(r, g, b, 1.0)
 
 
         cam_axis = (0, 0, 1)        
