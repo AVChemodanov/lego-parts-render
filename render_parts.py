@@ -1,3 +1,4 @@
+import sys
 import bpy
 import numpy as np
 import math
@@ -6,53 +7,22 @@ import random
 import os
 
 
-def random_color():
-    #r = random.randint(0, 255) / 255.0
-    #g = random.randint(0, 255) / 255.0
-    #b = random.randint(0, 255) / 255.0
-    
-    #return (r, g, b, 1.0)
-    colors = [  (1.0, 0.0, 0.0, 1.0), # red
-                (0.0, 1.0, 0.0, 1.0), # green
-                (0.0, 0.0, 1.0, 1.0), # blue
-                (1.0, 1.0, 1.0, 1.0), # white
-                (0.0, 0.0, 0.0, 1.0), # black 
-                (0.5, 0.5, 0.5, 1.0), ] #gray
-    index = random.randint(0,5)
-    
-    #return colors[index]
-    return  (1.0, 0.0, 0.0, 1.0) # red color only
-    
 
+RED   = (1.0, 0.0, 0.0, 1.0)  # red
+GREEN = (0.0, 1.0, 0.0, 1.0)  # green
+BLUE  = (0.0, 0.0, 1.0, 1.0)  # blue
+WHITE = (1.0, 1.0, 1.0, 1.0)  # white
+BLACK = (0.0, 0.0, 0.0, 1.0)  # black
+GREY  = (0.5, 0.5, 0.5, 1.0)  #gray
+
+image_cnt = 10
+render_engine = "BLENDER_EEVEE"
 
 def create_cube(mat_name, size, location):
     bpy.data.materials.new(mat_name)
-    bpy.data.materials[mat_name].diffuse_color = random_color()
+    bpy.data.materials[mat_name].diffuse_color = WHITE
     bpy.ops.mesh.primitive_cube_add(size=size, location=location)
     bpy.context.object.data.materials.append(bpy.data.materials[mat_name])
-
-
-def create_back(): 
-    pass
-    #create_cube("bottom", 200, (0, 0, -110))
-    
-    #create_cube("east", 200, (110, 0, 0))
-    #create_cube("south", 200, (110, 110, 0))
-    #create_cube("west", 200, (-110, 0, 0))
-    #create_cube("north", 200, (-110, -110, 0))
-    
-    #create_cube("top", 200, (0, 0, 110))
-    
-
-def recolor_back():
-    white = (1.0, 1.0, 1.0, 1.0)
-    #bpy.data.materials["bottom"].diffuse_color =  white # random_color()
-    #bpy.data.materials["east"].diffuse_color = white # random_color()
-    #bpy.data.materials["south"].diffuse_color = white # random_color()
-    #bpy.data.materials["west"].diffuse_color = white # random_color()
-    #bpy.data.materials["north"].diffuse_color = white # random_color()
-    #bpy.data.materials["top"].diffuse_color = random_color()
-
 
 def prepare_and_load(filename, brick_name):
     # удалим всё
@@ -66,19 +36,14 @@ def prepare_and_load(filename, brick_name):
         print('It seems scene is empty')
 
 
-    # создадим фон
-    create_back()
-    
     #загрузим деталь 
     bpy.ops.import_scene.importldraw(filepath=filename,useLogoStuds=True)
     brick = bpy.context.active_object
-    #brick_name = 'noname'
     for child in bpy.context.scene.objects:
         if ".dat" in child.name:
             brick = child
         if "LegoGroundPlane" in child.name: 
             plane = child;
-    #        brick_name = child.name.rpartition('.')[0]
 
     brick.location[2]+=1
     brick.visible_shadow = False
@@ -101,14 +66,10 @@ def prepare_and_load(filename, brick_name):
     constraint = cam.constraints.new(type='TRACK_TO')
     constraint.target=brick
 
-    return (brick, plane, light)
+    return brick, plane, light
 
 
 def rotation_matrix(axis, theta):
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
-    """
     axis = np.asarray(axis)
     axis = axis / math.sqrt(np.dot(axis, axis))
     a = math.cos(theta / 2.0)
@@ -125,13 +86,14 @@ def rotate(point, angle_degrees, axis=(0,1,0)):
     
     rotated_point = np.dot(rotation_matrix(axis, theta_radians), point)
     return rotated_point
-      
+
 def render_part(scene, light, brick, plane, target_dir, brick_name): 
     cam = bpy.context.scene.camera
     # настроим рендеринг 
     #scene.render.engine = "BLENDER_WORKBENCH"
     #scene.render.engine = "BLENDER_EEVEE"
-    scene.render.engine = "CYCLES"
+    #scene.render.engine = "CYCLES"
+    scene.render.engine = render_engine
     # Set the device_type
     bpy.context.preferences.addons[
         "cycles"
@@ -155,44 +117,12 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
 
     radiants = 0.0
     step = 10
+    total_radiants = image_cnt * step
 
-    for angle in range(0, 2160, step):
-    #for angle in range(0, 10, step):
-        # enable/disable plane
-        #hide = random.randint(0, 100)
-        #print(hide)
-        #if ( hide > 50 ):
-        #    plane.hide_render = True
-        #else:
-        #    plane.hide_render = False
-        
-        # colorization
-        #recolor_back() 
-
-        #material_slots = brick.material_slots
-        #for m in material_slots:
-        #    material = m.material
-        #    material.node_tree.nodes["Group"].inputs[0].default_value = random_color() #(r, g, b, 1.0)
-
-
-        cam_axis = (0, 0, 1)        
+    for angle in range(0, total_radiants, step):
+        cam_axis = (0, 0, 1)
         light_axis = (0, 0, 1)
-        #if ( angle < 1920 ):
-            #cam_axis = (0, 1, 0)
-        #    light_axis = (1, 1, 0)
-        #if ( angle < 1440 ):
-            #cam_axis = (0, 1, 1)
-        #    light_axis = (1, 0, 1)
-        #if ( angle < 1080 ):
-            #cam_axis = (1, 1, 0)
-        #    light_axis = (1, 0, 1)
-        #if ( angle < 720 ):
-            #cam_axis = (0, 1, 0)
-        #    light_axis = (1, 0, 0)
-        #if ( angle < 360 ):
-        #    cam_axis = (0, 0, 1)
-        #    light_axis = (1, 0, 0)
-        
+
         # camera rotation
         cam_location = cam.location    
         new_cam_location = rotate(cam_location, step, axis=cam_axis)    
@@ -232,9 +162,21 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
         bpy.ops.render.render(write_still=1)
 
 
+argv = sys.argv
+argv = argv[argv.index("--") + 1:]  # get all args after "--"
+
+print(argv)
+if len(argv) > 0:
+    src_dir = argv[0]
+if len(argv) > 1:
+    image_cnt = argv[1]
+if len(argv) > 2:
+    render_engine = argv[2]
+
+
 # пройдемся по каталогам
 desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') 
-src_dir=f'{desktop}\\source'
+src_dir=f'{desktop}\\soursce'
 
 
 src = []
