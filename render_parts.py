@@ -189,11 +189,14 @@ if len(argv) > 1:
 if len(argv) > 2:
     render_engine = argv[2]
 
+
+wdir = ""
 # пройдемся по каталогам
 src = []
 for (dirpath, dirnames, filenames) in os.walk(src_dir):
     for filename in filenames:
         src.append(dirpath + "\\" + filename)
+        wdir = dirpath
 
 for filename in src:
     package =  filename.rpartition('\\')[0].rpartition('\\')[-1]
@@ -210,4 +213,6 @@ for filename in src:
     render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name)
 
     shutil.move(filename, target + "\\" + brick_name + ".dat")
+
+os.rmdir(wdir)
 
