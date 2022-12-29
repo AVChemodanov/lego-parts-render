@@ -5,7 +5,8 @@ import math
 import mathutils
 import random
 import os
-
+import shutil
+from time import sleep
 
 
 RED   = (1.0, 0.0, 0.0, 1.0)  # red
@@ -87,13 +88,15 @@ def rotate(point, angle_degrees, axis=(0,1,0)):
     rotated_point = np.dot(rotation_matrix(axis, theta_radians), point)
     return rotated_point
 
-def render_part(scene, light, brick, plane, target_dir, brick_name): 
+def render_part(scene, light, brick, plane, target_dir, brick_name):
+
     cam = bpy.context.scene.camera
     # настроим рендеринг 
     #scene.render.engine = "BLENDER_WORKBENCH"
     #scene.render.engine = "BLENDER_EEVEE"
     #scene.render.engine = "CYCLES"
     scene.render.engine = render_engine
+
     # Set the device_type
     bpy.context.preferences.addons[
         "cycles"
@@ -104,12 +107,13 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
 
 
     # непосредственно рендер 
-    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') 
+    #desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
     scene.cycles.samples = 150
     scene.cycles.diffuse_bounces = 10
     scene.cycles.glossy_bounces = 0
     scene.render.image_settings.file_format='PNG'
-    scene.render.filepath=f'{desktop}\\blend\\{brick_name}.png'
+    #scene.render.filepath=f'{desktop}\\blend\\{brick_name}.png'
+    scene.render.filepath=f'{target_dir}\\{brick_name}.png'
 
     scene.render.resolution_x = 1024
     scene.render.resolution_y = 768
@@ -119,7 +123,12 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
     step = 10
     total_radiants = image_cnt * step
 
+    print(step)
+    print(total_radiants)
+
     for angle in range(0, total_radiants, step):
+        #progress(brick_name, angle / total_radiants * 100)
+
         cam_axis = (0, 0, 1)
         light_axis = (0, 0, 1)
 
@@ -162,6 +171,13 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
         bpy.ops.render.render(write_still=1)
 
 
+def progress(name, percent):
+    cnt = round(percent / 2)
+    sys.stdout.write('\r')
+    sys.stdout.write("%s: [%-50s] %d%%" % (name, '=' * cnt, percent))
+    sys.stdout.flush()
+
+
 argv = sys.argv
 argv = argv[argv.index("--") + 1:]  # get all args after "--"
 
@@ -169,28 +185,29 @@ print(argv)
 if len(argv) > 0:
     src_dir = argv[0]
 if len(argv) > 1:
-    image_cnt = argv[1]
+    image_cnt = int(argv[1])
 if len(argv) > 2:
     render_engine = argv[2]
 
-
 # пройдемся по каталогам
-desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') 
-src_dir=f'{desktop}\\soursce'
-
-
 src = []
 for (dirpath, dirnames, filenames) in os.walk(src_dir):
-    src.extend(filenames)
+    for filename in filenames:
+        src.append(dirpath + "\\" + filename)
 
 for filename in src:
-    brick_name = filename.rpartition('.')[0]
-    
+    package =  filename.rpartition('\\')[0].rpartition('\\')[-1]
+    brick_name = filename.rpartition('.')[0].rpartition('\\')[-1]
+    # создадим выходной каталог
+    target = "done\\"+package
+    os.makedirs(target, exist_ok=True)
     # загружаем
-    (part, plane, light) = prepare_and_load(f'{src_dir}\\{filename}', brick_name)
-                  
-    # рендерим
-    bpy.context.scene.world.use_nodes = False
-    render_part(bpy.context.scene, light, part, plane, f'{desktop}\\blend', brick_name)
+    (part, plane, light) = prepare_and_load(filename, brick_name)
 
-                     
+    # рендерим
+    directory = os.getcwd()
+    bpy.context.scene.world.use_nodes = False
+    render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name)
+
+    shutil.move(filename, target + "\\" + brick_name + ".dat")
+
