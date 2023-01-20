@@ -18,6 +18,7 @@ GREY  = (0.5, 0.5, 0.5, 1.0)  #gray
 
 image_cnt = 10
 render_engine = "BLENDER_EEVEE"
+mode = "M"
 
 def create_cube(mat_name, size, location):
     bpy.data.materials.new(mat_name)
@@ -88,13 +89,10 @@ def rotate(point, angle_degrees, axis=(0,1,0)):
     rotated_point = np.dot(rotation_matrix(axis, theta_radians), point)
     return rotated_point
 
-def render_part(scene, light, brick, plane, target_dir, brick_name):
+def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
 
     cam = bpy.context.scene.camera
-    # настроим рендеринг 
-    #scene.render.engine = "BLENDER_WORKBENCH"
-    #scene.render.engine = "BLENDER_EEVEE"
-    #scene.render.engine = "CYCLES"
+    # настроим рендеринг
     scene.render.engine = render_engine
 
     # Set the device_type
@@ -106,17 +104,15 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
     bpy.context.scene.cycles.device = "GPU"
 
 
-    # непосредственно рендер 
-    #desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+    # непосредственно рендер
     scene.cycles.samples = 150
     scene.cycles.diffuse_bounces = 10
     scene.cycles.glossy_bounces = 0
     scene.render.image_settings.file_format='PNG'
-    #scene.render.filepath=f'{desktop}\\blend\\{brick_name}.png'
     scene.render.filepath=f'{target_dir}\\{brick_name}.png'
 
-    scene.render.resolution_x = 1024
-    scene.render.resolution_y = 768
+    scene.render.resolution_x = 512
+    scene.render.resolution_y = 512
     bpy.ops.render.render(write_still=1)
 
     radiants = 0.0
@@ -127,22 +123,15 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
     print(total_radiants)
 
     for angle in range(0, total_radiants, step):
-        #progress(brick_name, angle / total_radiants * 100)
-
         cam_axis = (0, 0, 1)
-        light_axis = (0, 0, 1)
 
-        # camera rotation
-        cam_location = cam.location    
-        new_cam_location = rotate(cam_location, step, axis=cam_axis)    
-        cam.location = new_cam_location
-        print(f"{angle} at {new_cam_location}" )
-        
-        # light location
-        light_location = light.location
-        new_light_location = rotate(light_location, step, axis=light_axis)
-        #light.location = new_light_location
-        
+        if mode == "M":
+            # camera rotation
+            cam_location = cam.location
+            new_cam_location = rotate(cam_location, step, axis=cam_axis)
+            cam.location = new_cam_location
+            print(f"{angle} at {new_cam_location}" )
+
         
         # brick rotation 
         radiants += 15.0
@@ -165,10 +154,17 @@ def render_part(scene, light, brick, plane, target_dir, brick_name):
             brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
                 eul.to_quaternion().to_euler(obj.rotation_mode))
                 
-        scene.render.resolution_x = 640
+        scene.render.resolution_x = 480
         scene.render.resolution_y = 480
-        scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle}.png'
+        scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle}R.png'
         bpy.ops.render.render(write_still=1)
+
+        if mode == "S":
+            cam_location_x = cam.location.x
+            cam.location.x += 0.2
+            scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle}L.png'
+            bpy.ops.render.render(write_still=1)
+            cam.location.x = cam_location_x
 
 
 def progress(name, percent):
@@ -187,8 +183,16 @@ if len(argv) > 0:
 if len(argv) > 1:
     image_cnt = int(argv[1])
 if len(argv) > 2:
+    # Allowed values
+    # BLENDER_WORKBENCH
+    # BLENDER_EEVEE
+    # CYCLES
     render_engine = argv[2]
-
+if len(argv) > 3:
+    # Allowed values
+    # M # MONO
+    # S # STEREO
+    mode = argv[3]
 
 wdir = ""
 # пройдемся по каталогам
@@ -210,9 +214,10 @@ for filename in src:
     # рендерим
     directory = os.getcwd()
     bpy.context.scene.world.use_nodes = False
-    render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name)
+    render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name, mode)
 
     shutil.move(filename, target + "\\" + brick_name + ".dat")
 
-os.rmdir(wdir)
+if wdir != "":
+    os.rmdir(wdir)
 
