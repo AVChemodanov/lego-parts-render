@@ -29,7 +29,7 @@ for /d %%D in (%workpath%/*) do (
     set /a i=i+1
     if !i! gtr %threads% goto :continue
 
-	start cmd /k blender -b empty.blend --background --python render_parts.py -- %workpath%\%%D %image_count% %render_engine% %mode%
+	start cmd /k blender --background --python render_parts.py -- %workpath%\%%D %image_count% %render_engine% %mode%
 )
 
 :continue
