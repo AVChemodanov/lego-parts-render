@@ -7,6 +7,7 @@ import random
 import os
 import shutil
 from time import sleep
+from math import sqrt
 
 
 RED   = (1.0, 0.0, 0.0, 1.0)  # red
@@ -16,15 +17,13 @@ WHITE = (1.0, 1.0, 1.0, 1.0)  # white
 BLACK = (0.0, 0.0, 0.0, 1.0)  # black
 GREY  = (0.5, 0.5, 0.5, 1.0)  #gray
 
+src_dir = 'new' #'E:\\Projects\\lego-parts-render\\new'
 image_cnt = 10
 render_engine = "BLENDER_EEVEE"
 mode = "M"
+brick_level = 2
+camera_distance = 4
 
-def create_cube(mat_name, size, location):
-    bpy.data.materials.new(mat_name)
-    bpy.data.materials[mat_name].diffuse_color = WHITE
-    bpy.ops.mesh.primitive_cube_add(size=size, location=location)
-    bpy.context.object.data.materials.append(bpy.data.materials[mat_name])
 
 def prepare_and_load(filename, brick_name):
     # удалим всё
@@ -47,26 +46,31 @@ def prepare_and_load(filename, brick_name):
         if "LegoGroundPlane" in child.name: 
             plane = child;
 
-    brick.location[2]+=1
+    brick.location[2]+=brick_level
     brick.visible_shadow = False
 
     # создадим свет 
     light_data = bpy.data.lights.new('light', type='SUN')
     light_data.use_shadow = False
+    #light_data.energy = 5.0
+    #light_data.angle = 0.523599
+        
     light = bpy.data.objects.new('light', light_data)
     bpy.context.collection.objects.link(light)
     light.location = (25, -3, 20)
+
 
     # создадим камеру
     cam_data = bpy.data.cameras.new('camera')
     cam = bpy.data.objects.new('camera', cam_data)
     bpy.context.collection.objects.link(cam)
     bpy.context.scene.camera=cam
-    cam.location=(2, 2, 3)
+    #cam.location=(2.5, 2, 1.7)
+    cam.location=(0, 0, brick_level + camera_distance)
 
     # направим камеру на объект
-    constraint = cam.constraints.new(type='TRACK_TO')
-    constraint.target=brick
+    #constraint = cam.constraints.new(type='TRACK_TO')
+    #constraint.target=brick
 
     return brick, plane, light
 
@@ -115,56 +119,36 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
     scene.render.resolution_y = 512
     bpy.ops.render.render(write_still=1)
 
-    radiants = 0.0
-    step = 10
-    total_radiants = image_cnt * step
+    step = round(360 / sqrt(image_cnt))
 
     print(step)
-    print(total_radiants)
 
-    for angle in range(0, total_radiants, step):
-        cam_axis = (0, 0, 1)
+    for angle_x in range(step, 360, step):
+        for angle_y in range(step, 360, step):        
+            # brick rotation
+            eul = mathutils.Euler((math.radians(angle_x), math.radians(angle_y), 0.0), 'XYZ')
 
-        if mode == "M":
-            # camera rotation
-            cam_location = cam.location
-            new_cam_location = rotate(cam_location, step, axis=cam_axis)
-            cam.location = new_cam_location
-            print(f"{angle} at {new_cam_location}" )
-
-        
-        # brick rotation 
-        radiants += 15.0
-        axis_selector = random.randint(0, 100)
-        if axis_selector < 33:
-            eul = mathutils.Euler((math.radians(radiants), 0.0, 0.0), 'XYZ')
-        else: 
-            if axis_selector < 66: 
-                eul = mathutils.Euler((0.0, math.radians(radiants), 0.0), 'XYZ')
+            if brick.rotation_mode == "QUATERNION":
+                brick.rotation_quaternion = eul.to_quaternion()
+            elif brick.rotation_mode == "AXIS_ANGLE":
+                q = eul.to_quaternion()
+                brick.rotation_axis_angle[0]  = q.angle
+                brick.rotation_axis_angle[1:] = q.axis
             else:
-                eul = mathutils.Euler((0.0, 0.0, math.radians(radiants)), 'XYZ')
-
-        if brick.rotation_mode == "QUATERNION":
-            brick.rotation_quaternion = eul.to_quaternion()
-        elif brick.rotation_mode == "AXIS_ANGLE":
-            q = eul.to_quaternion()
-            brick.rotation_axis_angle[0]  = q.angle
-            brick.rotation_axis_angle[1:] = q.axis
-        else:
-            brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
-                eul.to_quaternion().to_euler(obj.rotation_mode))
-                
-        scene.render.resolution_x = 480
-        scene.render.resolution_y = 480
-        scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle}R.png'
-        bpy.ops.render.render(write_still=1)
-
-        if mode == "S":
-            cam_location_x = cam.location.x
-            cam.location.x += 0.2
-            scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle}L.png'
+                brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
+                    eul.to_quaternion().to_euler(obj.rotation_mode))
+                    
+            scene.render.resolution_x = 480
+            scene.render.resolution_y = 480
+            scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}R.png'
             bpy.ops.render.render(write_still=1)
-            cam.location.x = cam_location_x
+
+            if mode == "S":
+                cam_location_x = cam.location.x
+                cam.location.x += 0.2
+                scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}L.png'
+                bpy.ops.render.render(write_still=1)
+                cam.location.x = cam_location_x
 
 
 def progress(name, percent):
@@ -174,8 +158,13 @@ def progress(name, percent):
     sys.stdout.flush()
 
 
+print("Start from " + os.getcwd())
+
 argv = sys.argv
-argv = argv[argv.index("--") + 1:]  # get all args after "--"
+try:
+    argv = argv[argv.index("--") + 1:]  # get all args after "--"
+except ValueError:
+    argv = ''
 
 print(argv)
 if len(argv) > 0:
@@ -197,8 +186,11 @@ if len(argv) > 3:
 wdir = ""
 # пройдемся по каталогам
 src = []
+print("Walk trhough " + src_dir)
 for (dirpath, dirnames, filenames) in os.walk(src_dir):
+    print(dirpath + ":" )
     for filename in filenames:
+        print( "\\" + filename)
         src.append(dirpath + "\\" + filename)
         wdir = dirpath
 
@@ -207,7 +199,9 @@ for filename in src:
     brick_name = filename.rpartition('.')[0].rpartition('\\')[-1]
     # создадим выходной каталог
     target = "done\\"+package
-    os.makedirs(target, exist_ok=True)
+    
+#    os.makedirs(target, exist_ok=True)
+    
     # загружаем
     (part, plane, light) = prepare_and_load(filename, brick_name)
 
@@ -216,7 +210,7 @@ for filename in src:
     bpy.context.scene.world.use_nodes = False
     render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name, mode)
 
-    shutil.move(filename, target + "\\" + brick_name + ".dat")
+#    shutil.move(filename, target + "\\" + brick_name + ".dat")
 
 if wdir != "":
     os.rmdir(wdir)
