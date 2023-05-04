@@ -52,13 +52,15 @@ def prepare_and_load(filename, brick_name):
     # создадим свет 
     light_data = bpy.data.lights.new('light', type='SUN')
     light_data.use_shadow = False
-    #light_data.energy = 5.0
-    #light_data.angle = 0.523599
+    light_data.energy = 100
+    light_data.angle = 0.00918043
         
     light = bpy.data.objects.new('light', light_data)
     bpy.context.collection.objects.link(light)
-    light.location = (25, -3, 20)
-
+    light.location = (0, -6, 6)
+    light.rotation_euler[0] = 1.35132
+    light.rotation_euler[1] = 0
+    light.rotation_euler[2] = 0
 
     # создадим камеру
     cam_data = bpy.data.cameras.new('camera')
@@ -66,7 +68,8 @@ def prepare_and_load(filename, brick_name):
     bpy.context.collection.objects.link(cam)
     bpy.context.scene.camera=cam
     #cam.location=(2.5, 2, 1.7)
-    cam.location=(0, 0, brick_level + camera_distance)
+    cam.location=(0, 0.8, brick_level + camera_distance)
+    cam.rotation_euler[0] = -0.20944
 
     # направим камеру на объект
     #constraint = cam.constraints.new(type='TRACK_TO')
@@ -113,11 +116,6 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
     scene.cycles.diffuse_bounces = 10
     scene.cycles.glossy_bounces = 0
     scene.render.image_settings.file_format='PNG'
-    scene.render.filepath=f'{target_dir}\\{brick_name}.png'
-
-    scene.render.resolution_x = 512
-    scene.render.resolution_y = 512
-    bpy.ops.render.render(write_still=1)
 
     step = round(360 / sqrt(image_cnt))
 
@@ -138,8 +136,14 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
                 brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
                     eul.to_quaternion().to_euler(obj.rotation_mode))
                     
-            scene.render.resolution_x = 480
-            scene.render.resolution_y = 480
+            if angle_x == step and angle_y == step: 
+                scene.render.filepath=f'{target_dir}\\{brick_name}.png'
+                scene.render.resolution_x = 224
+                scene.render.resolution_y = 224
+                bpy.ops.render.render(write_still=1)
+            
+            scene.render.resolution_x = 224
+            scene.render.resolution_y = 224
             scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}R.png'
             bpy.ops.render.render(write_still=1)
 
@@ -200,7 +204,7 @@ for filename in src:
     # создадим выходной каталог
     target = "done\\"+package
     
-#    os.makedirs(target, exist_ok=True)
+    os.makedirs(target, exist_ok=True)
     
     # загружаем
     (part, plane, light) = prepare_and_load(filename, brick_name)
@@ -210,7 +214,7 @@ for filename in src:
     bpy.context.scene.world.use_nodes = False
     render_part(bpy.context.scene, light, part, plane, directory + "\\blended", brick_name, mode)
 
-#    shutil.move(filename, target + "\\" + brick_name + ".dat")
+    shutil.move(filename, target + "\\" + brick_name + ".dat")
 
 if wdir != "":
     os.rmdir(wdir)
