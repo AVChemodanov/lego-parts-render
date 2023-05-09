@@ -19,7 +19,7 @@ GREY  = (0.5, 0.5, 0.5, 1.0)  #gray
 
 src_dir = 'new' #'E:\\Projects\\lego-parts-render\\new'
 image_cnt = 10
-render_engine = "BLENDER_EEVEE"
+render_engine = "CYCLES" # "BLENDER_EEVEE"
 mode = "M"
 brick_level = 2
 camera_distance = 4
@@ -50,15 +50,19 @@ def prepare_and_load(filename, brick_name):
     brick.visible_shadow = False
 
     # создадим свет 
-    light_data = bpy.data.lights.new('light', type='SUN')
+    #light_data = bpy.data.lights.new('light', type='SUN') 
+    light_data = bpy.data.lights.new('light', type='SPOT')
     light_data.use_shadow = False
-    light_data.energy = 100
-    light_data.angle = 0.00918043
+    light_data.energy = 1500
+    #light_data.angle = 0.00918043
+    light_data.spot_size = 1.74533
+    light_data.shadow_soft_size = 0.5
+
         
     light = bpy.data.objects.new('light', light_data)
     bpy.context.collection.objects.link(light)
-    light.location = (0, -6, 6)
-    light.rotation_euler[0] = 1.35132
+    light.location = (0, 5, 3)
+    light.rotation_euler[0] = -1.5708
     light.rotation_euler[1] = 0
     light.rotation_euler[2] = 0
 
@@ -67,9 +71,8 @@ def prepare_and_load(filename, brick_name):
     cam = bpy.data.objects.new('camera', cam_data)
     bpy.context.collection.objects.link(cam)
     bpy.context.scene.camera=cam
-    #cam.location=(2.5, 2, 1.7)
-    cam.location=(0, 0.8, brick_level + camera_distance)
-    cam.rotation_euler[0] = -0.20944
+    cam.location=(0, 1.4, brick_level + camera_distance)
+    cam.rotation_euler[0] = -0.35
 
     # направим камеру на объект
     #constraint = cam.constraints.new(type='TRACK_TO')
@@ -94,7 +97,7 @@ def rotate(point, angle_degrees, axis=(0,1,0)):
     theta_radians = math.radians(theta_degrees)
     
     rotated_point = np.dot(rotation_matrix(axis, theta_radians), point)
-    return rotated_point
+    return rotated_point0
 
 def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
 
@@ -117,26 +120,17 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
     scene.cycles.glossy_bounces = 0
     scene.render.image_settings.file_format='PNG'
 
-    step = round(360 / sqrt(image_cnt))
+    #step = round(360 / sqrt(image_cnt))
+    step = image_cnt / 8
+    step = round (360 / step) 
 
     print(step)
 
-    for angle_x in range(step, 360, step):
-        for angle_y in range(step, 360, step):        
-            # brick rotation
-            eul = mathutils.Euler((math.radians(angle_x), math.radians(angle_y), 0.0), 'XYZ')
-
-            if brick.rotation_mode == "QUATERNION":
-                brick.rotation_quaternion = eul.to_quaternion()
-            elif brick.rotation_mode == "AXIS_ANGLE":
-                q = eul.to_quaternion()
-                brick.rotation_axis_angle[0]  = q.angle
-                brick.rotation_axis_angle[1:] = q.axis
-            else:
-                brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
-                    eul.to_quaternion().to_euler(obj.rotation_mode))
-                    
-            if angle_x == step and angle_y == step: 
+    
+    for angle_x in range(0, 360, 45):
+        for angle_y in range(0, 360, step):        
+            #brick render
+            if angle_x == 0 and angle_y == 0: 
                 scene.render.filepath=f'{target_dir}\\{brick_name}.png'
                 scene.render.resolution_x = 224
                 scene.render.resolution_y = 224
@@ -153,6 +147,21 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
                 scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}L.png'
                 bpy.ops.render.render(write_still=1)
                 cam.location.x = cam_location_x
+
+            # brick rotation
+            eul = mathutils.Euler((math.radians(angle_x), math.radians(angle_y), 0.0), 'XYZ')
+
+            if brick.rotation_mode == "QUATERNION":
+                brick.rotation_quaternion = eul.to_quaternion()
+            elif brick.rotation_mode == "AXIS_ANGLE":
+                q = eul.to_quaternion()
+                brick.rotation_axis_angle[0]  = q.angle
+                brick.rotation_axis_angle[1:] = q.axis
+            else:
+                brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
+                    eul.to_quaternion().to_euler(obj.rotation_mode))
+                    
+            
 
 
 def progress(name, percent):
