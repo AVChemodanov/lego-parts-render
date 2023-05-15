@@ -15,11 +15,11 @@ GREEN = (0.0, 1.0, 0.0, 1.0)  # green
 BLUE  = (0.0, 0.0, 1.0, 1.0)  # blue
 WHITE = (1.0, 1.0, 1.0, 1.0)  # white
 BLACK = (0.0, 0.0, 0.0, 1.0)  # black
-GREY  = (0.5, 0.5, 0.5, 1.0)  #gray
+GREY  = (0.5, 0.5, 0.5, 1.0)  # gray
 
 src_dir = 'new' #'E:\\Projects\\lego-parts-render\\new'
-image_cnt = 10
-render_engine = "CYCLES" # "BLENDER_EEVEE"
+image_cnt = 288
+render_engine = "BLENDER_EEVEE" # "CYCLES" 
 mode = "M"
 brick_level = 2
 camera_distance = 4
@@ -50,14 +50,12 @@ def prepare_and_load(filename, brick_name):
     brick.visible_shadow = False
 
     # создадим свет 
-    #light_data = bpy.data.lights.new('light', type='SUN') 
+    # основной
     light_data = bpy.data.lights.new('light', type='SPOT')
     light_data.use_shadow = False
     light_data.energy = 1500
-    #light_data.angle = 0.00918043
     light_data.spot_size = 1.74533
     light_data.shadow_soft_size = 0.5
-
         
     light = bpy.data.objects.new('light', light_data)
     bpy.context.collection.objects.link(light)
@@ -66,6 +64,20 @@ def prepare_and_load(filename, brick_name):
     light.rotation_euler[1] = 0
     light.rotation_euler[2] = 0
 
+    # фоновый
+    light_data = bpy.data.lights.new('back_light', type='SPOT')
+    light_data.use_shadow = False
+    light_data.energy = 10000
+    light_data.spot_size = 3.1363
+    light_data.shadow_soft_size = 3
+
+        
+    back_light = bpy.data.objects.new('back_light', light_data)
+    bpy.context.collection.objects.link(back_light)
+    back_light.location = brick.location
+    back_light.location[1]=-1
+    back_light.location[2]-=1
+
     # создадим камеру
     cam_data = bpy.data.cameras.new('camera')
     cam = bpy.data.objects.new('camera', cam_data)
@@ -73,7 +85,7 @@ def prepare_and_load(filename, brick_name):
     bpy.context.scene.camera=cam
     cam.location=(0, 1.4, brick_level + camera_distance)
     cam.rotation_euler[0] = -0.35
-
+    
     # направим камеру на объект
     #constraint = cam.constraints.new(type='TRACK_TO')
     #constraint.target=brick
@@ -121,45 +133,45 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
     scene.render.image_settings.file_format='PNG'
 
     #step = round(360 / sqrt(image_cnt))
-    step = image_cnt / 8
+    step = image_cnt / 24
     step = round (360 / step) 
 
     print(step)
 
-    
-    for angle_x in range(0, 360, 45):
-        for angle_y in range(0, 360, step):        
-            #brick render
-            if angle_x == 0 and angle_y == 0: 
-                scene.render.filepath=f'{target_dir}\\{brick_name}.png'
+    for angle_z in range(-10, 10, 20):
+        for angle_x in range(0, 360, 45):
+            for angle_y in range(0, 360, step):        
+                #brick render
+                if angle_x == 0 and angle_y == 0 and angle_z == 0: 
+                    scene.render.filepath=f'{target_dir}\\{brick_name}.png'
+                    scene.render.resolution_x = 224
+                    scene.render.resolution_y = 224
+                    bpy.ops.render.render(write_still=1)
+                
                 scene.render.resolution_x = 224
                 scene.render.resolution_y = 224
+                scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}_{angle_z}R.png'
                 bpy.ops.render.render(write_still=1)
-            
-            scene.render.resolution_x = 224
-            scene.render.resolution_y = 224
-            scene.render.filepath=f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}R.png'
-            bpy.ops.render.render(write_still=1)
 
-            if mode == "S":
-                cam_location_x = cam.location.x
-                cam.location.x += 0.2
-                scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}L.png'
-                bpy.ops.render.render(write_still=1)
-                cam.location.x = cam_location_x
+                if mode == "S":
+                    cam_location_x = cam.location.x
+                    cam.location.x += 0.2
+                    scene.render.filepath = f'{target_dir}\\{brick_name}\\{brick_name}_{angle_x}_{angle_y}_{angle_z}L.png'
+                    bpy.ops.render.render(write_still=1)
+                    cam.location.x = cam_location_x
 
-            # brick rotation
-            eul = mathutils.Euler((math.radians(angle_x), math.radians(angle_y), 0.0), 'XYZ')
+                # brick rotation
+                eul = mathutils.Euler((math.radians(angle_x), math.radians(angle_y), math.radians(angle_z)), 'XYZ')
 
-            if brick.rotation_mode == "QUATERNION":
-                brick.rotation_quaternion = eul.to_quaternion()
-            elif brick.rotation_mode == "AXIS_ANGLE":
-                q = eul.to_quaternion()
-                brick.rotation_axis_angle[0]  = q.angle
-                brick.rotation_axis_angle[1:] = q.axis
-            else:
-                brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
-                    eul.to_quaternion().to_euler(obj.rotation_mode))
+                if brick.rotation_mode == "QUATERNION":
+                    brick.rotation_quaternion = eul.to_quaternion()
+                elif brick.rotation_mode == "AXIS_ANGLE":
+                    q = eul.to_quaternion()
+                    brick.rotation_axis_angle[0]  = q.angle
+                    brick.rotation_axis_angle[1:] = q.axis
+                else:
+                    brick.rotation_euler = eul if eul.order == brick.rotation_mode else(
+                        eul.to_quaternion().to_euler(obj.rotation_mode))
                     
             
 
