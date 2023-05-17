@@ -138,7 +138,7 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
 
     print(step)
 
-    for angle_z in range(-10, 10, 20):
+    for angle_z in range(-15, 15, 30):
         for angle_x in range(0, 360, 45):
             for angle_y in range(0, 360, step):        
                 #brick render
