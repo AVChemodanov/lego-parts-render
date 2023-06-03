@@ -65,18 +65,18 @@ def prepare_and_load(filename, brick_name):
     light.rotation_euler[2] = 0
 
     # фоновый
-    #light_data = bpy.data.lights.new('back_light', type='SPOT')
-    #light_data.use_shadow = False
-    #light_data.energy = 10000
-    #light_data.spot_size = 3.1363
-    #light_data.shadow_soft_size = 3
+    light_data = bpy.data.lights.new('back_light', type='SPOT')
+    light_data.use_shadow = False
+    light_data.energy = 10000
+    light_data.spot_size = 3.1363
+    light_data.shadow_soft_size = 3
 
         
-    #back_light = bpy.data.objects.new('back_light', light_data)
-    #bpy.context.collection.objects.link(back_light)
-    #back_light.location = brick.location
-    #back_light.location[1]=-1
-    #back_light.location[2]-=1
+    back_light = bpy.data.objects.new('back_light', light_data)
+    bpy.context.collection.objects.link(back_light)
+    back_light.location = brick.location
+    back_light.location[1]=-1
+    back_light.location[2]-=1
 
     # создадим камеру
     cam_data = bpy.data.cameras.new('camera')
@@ -139,8 +139,9 @@ def render_part(scene, light, brick, plane, target_dir, brick_name, mode):
     first_run = True
     
     z_step = 25
+    z_to = z_step*2
 
-    for angle_z in range(-z_step, z_step, z_step*2):
+    for angle_z in range(-z_step, z_to, z_step):
         for angle_x in range(0, 360, 45):
             for angle_y in range(0, 360, step):        
                 #brick render
